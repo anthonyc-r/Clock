@@ -9,12 +9,12 @@ include $(GNUSTEP_MAKEFILES)/common.make
 VERSION = 0.1
 PACKAGE_NAME = Clock
 APP_NAME = Clock
-Clock_APPLICATION_ICON = 
+Clock_APPLICATION_ICON = clock.tiff
 
 # The Objective-C files to compile
 Clock_OBJC_FILES = clock.m
 
-Clock_RESOURCE_FILES = Resources/clock_background_thin_small.tiff
+Clock_RESOURCE_FILES = Resources/clock_background_thin_small.tiff Resources/clock.tiff
 
 -include GNUmakefile.preamble
 

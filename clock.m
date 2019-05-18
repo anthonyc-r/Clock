@@ -3,9 +3,13 @@
 #include "math.h"
 
 const CGFloat WINDOW_SIZE = 175.0;
+const CGFloat WINDOW_ORIGIN_X = 300.0;
+const CGFloat WINDOW_ORIGIN_Y = 300.0;
 const CGFloat HAND_WIDTH = 10.0;
 const CGFloat HAND_HOUR_HEIGHT = 50.0;
 const CGFloat HAND_MINUTE_HEIGHT = 70.0;
+// How much the end of the hand goes beyond the middle as a fraction
+const CGFloat HAND_EXTENSION = 0.05;
 const CGFloat DEGREES_IN_RAD = 180.0;
 const CGFloat DEGREES_IN_CIRCLE = 360.0;
 const CGFloat DEGREES_OFFSET = 90;
@@ -16,6 +20,8 @@ const int HOURS_IN_CLOCK = 12;
 const int MINUTES_IN_HOUR = 60;
 const int SECONDS_IN_MINUTE = 60;
 
+NSString *const DEFAULT_ORIGIN_X_KEY = @"clock_default_origin_x";
+NSString *const DEFAULT_ORIGIN_Y_KEY = @"clock_default_origin_y";
 NSString *const TITLE = @"Clock";
 NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 
@@ -49,6 +55,12 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 								   halfHandWidth * sin(rads + M_PI_2) + offsetY);
 	NSPoint pointThree = NSMakePoint(halfHandWidth * cos(rads - M_PI_2) + offsetX,
 									 halfHandWidth* sin(rads - M_PI_2) + offsetY);
+	CGFloat dx = pointOne.x - offsetX;
+	CGFloat dy = pointOne.y - offsetY;
+	pointTwo.x -= dx * HAND_EXTENSION;
+	pointTwo.y -= dy * HAND_EXTENSION;
+	pointThree.x -= dx * HAND_EXTENSION;
+	pointThree.y -= dy * HAND_EXTENSION;
 	
 	NSBezierPath *path = [NSBezierPath bezierPath];
 	[path moveToPoint: pointOne];
@@ -64,7 +76,7 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 
 @end
 
-@interface ClockWindow: NSWindow {
+@interface ClockWindow: NSWindow<NSWindowDelegate> {
 @private
 	NSImageView *_background;
 	ClockHandView *_hourHand;
@@ -74,13 +86,18 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 
 - (void) updateTime;
 - (void) setTimeToHours: (int)h minutes: (int)m seconds: (int)s;
++ (NSPoint) getDefaultOrigin;
 
 @end
 
 @implementation ClockWindow
 	
 - (id) init {
-	self = [super initWithContentRect: NSMakeRect(0, 0, WINDOW_SIZE, WINDOW_SIZE)
+	NSPoint origin = [ClockWindow getDefaultOrigin];
+	self = [super initWithContentRect: NSMakeRect(origin.x,
+												  origin.y, 
+												  WINDOW_SIZE, 
+												  WINDOW_SIZE)
 					        styleMask: NSTitledWindowMask | 
 					   			  	   NSClosableWindowMask | 
 								       NSMiniaturizableWindowMask
@@ -88,7 +105,7 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 					            defer: false];
 	if (self) {
 		[self setTitle: TITLE];
-	
+		[self setDelegate: self];
 		_background = [[NSImageView alloc] init];
 		NSImage *backgroundImage = [NSImage imageNamed: BACKGROUND_NAME];
 		if (!backgroundImage)
@@ -120,6 +137,11 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 	return self;
 }
 
+- (void) close {
+	[super close];
+	[NSApp terminate: self];
+}
+
 - (void) updateTime {
 	NSCalendarDate *date = [NSCalendarDate calendarDate];
 	[self setTimeToHours: [date hourOfDay]
@@ -145,6 +167,28 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 	[_hourHand setNeedsDisplay: YES];
 }
 
+- (void) windowDidMove: (NSNotification*)aNotification {
+	NSLog(@"Window did move!!");
+	NSPoint newOrigin = [self frame].origin;
+	[[NSUserDefaults standardUserDefaults] setFloat: newOrigin.x forKey: DEFAULT_ORIGIN_X_KEY];
+	[[NSUserDefaults standardUserDefaults] setFloat: newOrigin.y forKey: DEFAULT_ORIGIN_Y_KEY];
+}
+
++ (NSPoint) getDefaultOrigin {
+	CGFloat x = [[NSUserDefaults standardUserDefaults] floatForKey: DEFAULT_ORIGIN_X_KEY];
+	CGFloat y = [[NSUserDefaults standardUserDefaults] floatForKey: DEFAULT_ORIGIN_Y_KEY];
+	if (x == 0 || y == 0) {
+		NSRect screen = [[NSScreen mainScreen] visibleFrame];
+		NSLog(@"Main screen info, x: %f, y: %f, width: %f, height: %f", screen.origin.x, screen.origin.y, screen.size.width, screen.size.height);
+		x = screen.size.width / 2;
+		y = screen.size.height / 2;
+	} else {
+		NSLog(@"Found and using previous coordinates.");
+	}
+
+	return NSMakePoint(x, y);
+}
+
 @end
 
 
@@ -163,8 +207,7 @@ NSString *const BACKGROUND_NAME = @"clock_background_thin_small";
 @end
 
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	NSApplication *app = [NSApplication sharedApplication];
 	[app setDelegate: [AppDelegate new]];
 	[app run];
